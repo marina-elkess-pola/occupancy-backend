@@ -1,7 +1,8 @@
 {
   "dependencies": {
-    "cors": "^2.8.5",
     "express": "^5.1.0",
-    "mongoose": "^7.6.0"
+    "mongoose": "^7.6.0",
+    "cors": "^2.8.5",
+    "bcrypt": "^5.1.1"
   }
 }
