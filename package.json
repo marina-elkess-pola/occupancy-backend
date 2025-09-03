@@ -9,7 +9,8 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^7.8.7",
-    "morgan": "^1.10.1"
+    "morgan": "^1.10.1",
+    "node-cache": "^5.1.2"
   },
   "name": "backend",
   "version": "1.0.0",
