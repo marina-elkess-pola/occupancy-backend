@@ -1,17 +1,28 @@
-// server.js
+require('dns').setDefaultResultOrder('ipv4first');
 require('dotenv').config();
 
-const express = require('express');
-const cors = require('cors');
 const mongoose = require('mongoose');
+mongoose.set('strictQuery', true);
+mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 10000 })
+    .then(() => console.log('MongoDB connected'))
+    .catch(err => {
+        console.error('Mongo error:', err.message);
+        process.exit(1);
+    });
+
+
+// Remove duplicate mongoose.connect (keep only one)
+const express = require('express');
+const nodemailer = require('nodemailer');
+const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const morgan = require('morgan');        // optional but handy
-const cookieParser = require('cookie-parser'); // optional
+const morgan = require('morgan');
+const cookieParser = require('cookie-parser');
 const NodeCache = require('node-cache');
-const calcCache = new NodeCache({ stdTTL: 60 }); // cache for 60 seconds
+const calcCache = new NodeCache({ stdTTL: 60 });
 
-const User = require('./User'); // make sure this file exists (see sample below)
+const User = require('./User'); // make sure this file exists
 
 const app = express();
 
@@ -21,7 +32,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(morgan('tiny'));
 
-// Allow your local dev + production site
 const allowedOrigins = [
     'http://localhost:3000',
     'https://genfabtools.com'
@@ -37,6 +47,8 @@ app.use(cors({
 /* ---------- Config ---------- */
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 const MONGODB_URI = process.env.MONGODB_URI;
+const EMAIL_USER = process.env.EMAIL_USER;
+const EMAIL_PASS = process.env.EMAIL_PASS;
 
 if (!MONGODB_URI) {
     console.error('ERROR: MONGODB_URI environment variable is not set.');
@@ -44,12 +56,13 @@ if (!MONGODB_URI) {
 }
 
 mongoose.set('strictQuery', true);
-mongoose.connect(MONGODB_URI)
+mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 10000 })
     .then(() => console.log('MongoDB connected'))
     .catch(err => {
         console.error('Mongo error:', err.message);
         process.exit(1);
     });
+
 
 /* ---------- Auth middleware ---------- */
 function authMiddleware(req, res, next) {
@@ -71,6 +84,10 @@ function authMiddleware(req, res, next) {
 
 /* ---------- Health & misc ---------- */
 app.get('/health', (_req, res) => res.status(200).send('ok'));
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', message: 'Backend is running!' });
+});
 app.get('/version', (_req, res) => {
     const pkg = require('./package.json');
     res.json({ name: pkg.name, version: pkg.version });
@@ -176,11 +193,43 @@ app.post('/register', async (req, res) => {
         if (exists) return res.status(400).json({ error: 'Email already exists' });
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        const user = new User({ email, password: hashedPassword, displayName });
+        const confirmToken = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1d' });
+        const user = new User({ email, password: hashedPassword, displayName, confirmToken });
         await user.save();
-        res.status(201).json({ message: 'User registered' });
+
+        // Send confirmation email
+        if (EMAIL_USER && EMAIL_PASS) {
+            const transporter = nodemailer.createTransport({
+                service: 'gmail',
+                auth: { user: EMAIL_USER, pass: EMAIL_PASS }
+            });
+            const confirmUrl = `http://localhost:5000/confirm/${confirmToken}`;
+            await transporter.sendMail({
+                from: EMAIL_USER,
+                to: email,
+                subject: 'Confirm your account',
+                html: `<h2>Welcome!</h2><p>Please confirm your account by clicking <a href="${confirmUrl}">here</a>.</p>`
+            });
+        }
+
+        res.status(201).json({ message: 'User registered. Please check your email to confirm your account.' });
     } catch (err) {
         res.status(400).json({ error: 'Registration failed' });
+    }
+});
+
+app.get('/confirm/:token', async (req, res) => {
+    const { token } = req.params;
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const user = await User.findOne({ email: decoded.email, confirmToken: token });
+        if (!user) return res.status(400).send('Invalid or expired token');
+        user.confirmed = true;
+        user.confirmToken = '';
+        await user.save();
+        res.send('Account confirmed! You can now log in.');
+    } catch {
+        res.status(400).send('Invalid or expired token');
     }
 });
 
@@ -189,6 +238,7 @@ app.post('/login', async (req, res) => {
 
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ error: 'Invalid credentials' });
+    if (!user.confirmed) return res.status(400).json({ error: 'Please confirm your email before logging in.' });
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
