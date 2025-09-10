@@ -1,23 +1,31 @@
 {
-  "dependencies": {
-    "bcrypt": "^5.1.1",
-    "compression": "^1.8.1",
-    "cookie-parser": "^1.4.7",
-    "cors": "^2.8.5",
-    "dotenv": "^17.2.1",
-    "express": "^5.1.0",
-    "helmet": "^8.1.0",
-    "jsonwebtoken": "^9.0.2",
-    "mongoose": "^7.8.7",
-    "morgan": "^1.10.1",
-    "node-cache": "^5.1.2"
-  },
   "name": "backend",
   "version": "1.0.0",
+  "description": "OccuCalc backend",
   "main": "server.js",
+  "type": "commonjs",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node src/index.js",
+    "pingdb": "node test_mongo.js",
+    "dev": "nodemon src/index.js"
+  },
+  "engines": {
+    "node": ">=18 <23"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "compression": "^1.7.4",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.19.0",
+    "mongoose": "^7.8.7",
+    "morgan": "^1.10.0",
+    "node-cache": "^5.1.2",
+    "nodemailer": "^6.10.1"
   },
   "repository": {
     "type": "git",
@@ -30,5 +38,7 @@
     "url": "https://github.com/marina-elkess-pola/occupancy-backend/issues"
   },
   "homepage": "https://github.com/marina-elkess-pola/occupancy-backend#readme",
-  "description": ""
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
 }
