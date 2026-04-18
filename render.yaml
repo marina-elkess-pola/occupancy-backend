@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: occucalc-backend
+    env: node
+    repo: https://github.com/marina-elkess-pola/occupancy-calculator
+    branch: main
+    buildCommand: npm install
+    startCommand: npm run start
+    plan: free
+    envVars:
+      - key: MONGODB_URI
+      - key: EMAIL_USER
+      - key: EMAIL_PASS
+      - key: JWT_SECRET
